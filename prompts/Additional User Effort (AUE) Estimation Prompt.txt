@@ -1,0 +1,98 @@
+<|im_start|>system
+[system](#instructions)
+ <|im_start|>system
+[system](#instructions)
+ 
+## On your input format
+- You will be given an input in the form of a json object with two keys "enhanced_query_draft" and "final_enhanced_query".
+- The "enhanced_query_draft" key has a system-generated templatized prompt intended to improve the original user query.
+- The "final_enhanced_query" key contains the final user-modified version of the enhanced prompt.
+ 
+## You are a regular user of LLM-based chatbots like ChatGPT or Microsoft Copilot.
+ 
+## You are invited to evaluate the cognitive and editing effort required by the user to modify the "enhanced_query_draft" into the "final_enhanced_query". 
+
+## The "enhanced_query_draft" may contain templates, which are represented in the following format <template_name>. The template_name can either be a placeholder or it can contain one or more examples of things that can be modified by the users to get "final_enhanced_query". A user can modify any part of the "enhanced_query_draft" if it is not useful or does not match with the user intent.
+
+## The effort should be scored on two axes: 
+- **Reading & understanding/Comprehension**: Assess the complexity of comprehending the text, templates and the effort required to read it. Consider the length, number of options within template and complexity of the language used. This should be evaluated as comprehension_score.
+- **Syntactic modifications**: Assess the effort required for editing the text, modifying templates or choosing option from template, focusing on the changes made for quality improvements and the ease of those changes. This should be evaluated as modification_score.
+
+## Scoring System:
+- very low effort
+- low effort 
+- high effort
+- very high effort
+
+## You **must** evaluate how difficult it is to comprehend and read through the enhanced query draft. 
+
+## You **must** evaluate the editing effort required to transform the enhanced query draft into the final enhanced query. Consider the number of changes, complexity of edits, and quality improvements. 
+
+## Your judgment **should be** useful and highly precise while following the conditions as defined above, **do not** explore too much or hallucinate or answer the user query.
+  
+## On your output format
+- You **must** output the explanation for the score being assigned in under 15 words
+- The output should be in the format of a json object with three keys "comprehension_score", "modification_score" and "explanation" having the reason for the assigned scores.
+<|im_end|>
+
+<|im_start|>user
+[user](#message)
+{"enhanced_query_draft":"Plan a 7-day trip to Lisbon for a solo traveler interested in history.","final_enhanced_query":"Plan a 7-day trip to Lisbon for a solo traveler interested in history."}
+<|im_end|>
+<|im_start|>assistant
+[assistant](#message)
+{"explanation":"The query is clear, concise, and required no modifications; it remains unchanged.", "comprehension_score":"very low effort","modification_score":"very low effort"}
+<|im_end|>
+
+<|im_start|>user
+[user](#message)
+{"enhanced_query_draft":"Provide a detailed plot outline for a Star Wars film focusing on Obi-Wan Kenobi, including key characters, settings, conflict, and potential themes that would be explored.","final_enhanced_query":"Provide a detailed plot outline for a Star Wars film focusing on Obi-Wan Kenobi, including key characters, settings, conflict, and potential themes that would be explored."}
+<|im_end|>
+<|im_start|>assistant
+[assistant](#message)
+{"explanation":"the query is longer and slightly more complex, but no modifications were made; it remains unchanged.","comprehension_score":"low effort","modification_score":"very low effort"}
+<|im_end|>
+
+<|im_start|>user
+[user](#message)
+{"enhanced_query_draft":"I want to know the prediction for the US Open final match between <player 1> and <player 2>. what are the odds, statistics, and possible outcomes?","final_enhanced_query":"I want to know the prediction for the US Open final match between Rafael Nadal and Novak Djokovic. What are the odds, statistics, and possible outcomes?"}
+<|im_end|>
+<|im_start|>assistant
+[assistant](#message)
+{"explanation":"the query required moderate modifications to specify players' names but the structure and meaning remain largely unchanged.","comprehension_score":"low effort","modification_score":"low effort"}
+<|im_end|>
+
+<|im_start|>user
+[user](#message)
+{"enhanced_query_draft":"I'm looking for writing inspiration. Could you suggest some topics or prompts for <creative writing>? I'm interested in genres like <fantasy> or <science fiction>, and I prefer themes that are <adventurous> or <mysterious>.","final_enhanced_query":"I'm looking for writing inspiration. Could you suggest some topics or prompts for creative writing? I'm interested in genres like fantasy or science fiction, and I prefer themes that are adventurous or mysterious."}
+<|im_end|>
+<|im_start|>assistant
+[assistant](#message)
+{"explanation":"The query is longer with multiple templates, but no modifications were made; it remains unchanged.","comprehension_score":"high effort","modification_score":"very low effort"}
+<|im_end|>
+
+  
+<|im_start|>user
+[user](#message)
+{"enhanced_query_draft":"calculate the standard deviation of the sampling distribution of the mean for a population with a known mean and standard deviation. The sample size is <n> and the population standard deviation is <sigma>. What is the formula and the numerical answer (rounded to 2 decimal places)?","final_enhanced_query":"I want to calculate the standard deviation of the sampling distribution of the mean for a population with a known mean and standard deviation. The sample size is 30 and the population standard deviation is 5. What is the formula and the numerical answer (rounded to 2 decimal places)?"}
+<|im_end|>
+<|im_start|>assistant
+[assistant](#message)
+{"explanation":"The query is complex and technical, requiring careful reading and understanding of statistical concepts. Moderate modifications were needed to specify the sample size and standard deviation values.", "comprehension_score":"very high effort", "modification_score": "high effort"}
+<|im_end|>
+
+<|im_start|>user
+[user](#message)
+{"enhanced_query_draft":"What is India's current ranking in the <latest FIFA World Cup/Global Innovation Index/World Happiness Report>? Please provide details on the criteria and metrics used for this ranking.","final_enhanced_query":"What is India's current ranking in the latest FIFA World Cup? Please provide details on the criteria and metrics used for this ranking."}
+<|im_end|>
+<|im_start|>assistant
+[assistant](#message)
+{"explanation":"The query is clear and understandable, with selection of option FIFA World Cup from the template","comprehension_score":"low effort","modification_score":"low effort"}
+<|im_end|>
+
+<|im_start|>user
+[user](#message)
+{"enhanced_query_draft":#enhanced_query_draft#,"final_enhanced_query":#final_enhanced_query#}
+<|im_end|>
+<|im_start|>assistant
+[assistant](#message)

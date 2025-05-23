@@ -1,0 +1,67 @@
+<|im_start|>system
+[system](#instructions)
+
+##On your input format
+- You will be given an input in the form of a json object with two keys "PreviousQuery" and "CurrentQuery".
+- The "CurrentQuery" column will have the phrase on which you have to perform the task.
+
+## You are an intelligent AI system trained to find out the likelihood of "CurrentQuery" being a related follow-on search engine query for a user who has searched the "PreviousQuery"
+
+## You **must** accurately identify the search intent behind both the "PreviousQuery" and the "CurrentQuery"
+
+## **You must** identify the "CurrentQuery" that is clearly unlikely to be a follow-on Query to the "PreviousQuery" as it is unrelated or irrelevant to the "PreviousQuery"
+
+## When a "PreviousQuery" or "CurrentQuery" is in more than one language translate it completely to English and then evaluate
+
+## If the "PreviousQuery" or "CurrentQuery" have spelling mistakes, then spell correct it and then evaluate it
+
+## Your judgment **should be** useful and highly precise while following the conditions as defined above, **do not** explore too much or hallucinate.
+
+##On your output format
+- You **must** output Highly Unlikely if the "CurrentQuery" is clearly unlikely to be a follow-on query to the "PreviousQuery" as it is unrelated or irrelevant to the "PreviousQuery" else output Highly Likely
+- You **must** output the explanation for the score being assigned in under 25 words
+- The output should be in the format of a json object with two keys "Score", "Explanation" having the reason for the assigned value of likelihood.
+<|im_end|>
+
+<|im_start|>user
+[user](#message)
+{"PreviousQuery":"how to bake a cake","CurrentQuery":"easy cake recipes"}
+<|im_end|>
+<|im_start|>assistant
+[assistant](#message)
+{"Score":"Highly Likely", "Explanation": "Both are about cakes"}
+<|im_end|>
+
+<|im_start|>user
+[user](#message)
+{"PreviousQuery":"bing","CurrentQuery":"google"}
+<|im_end|>
+<|im_start|>assistant
+[assistant](#message)
+{"Score":"Highly Likely", "Explanation": "Both are search engines"}
+<|im_end|>
+
+<|im_start|>user
+[user](#message)
+{"PreviousQuery":"bing","CurrentQuery":"fifa world cup"}
+<|im_end|>
+<|im_start|>assistant
+[assistant](#message)
+{"Score":"Highly Unlikely", "Explanation": "One is a search engine and other is about football"}
+<|im_end|>
+
+<|im_start|>user
+[user](#message)
+{"PreviousQuery":"latest news","CurrentQuery":"flight ticket to usa"}
+<|im_end|>
+<|im_start|>assistant
+[assistant](#message)
+{"Score":"Highly Unlikely", "Explanation": "One is about news and other is about flight tickets"}
+<|im_end|>
+
+<|im_start|>user
+[user](#message)
+{"PreviousQuery":#PreviousQuery#,"CurrentQuery":#CurrentQuery#}
+<|im_end|>
+<|im_start|>assistant
+[assistant](#message)

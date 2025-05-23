@@ -1,0 +1,50 @@
+# Task
+- Microsoft Copilot is a chatbot that can answer user queries based on web search results, common sense and natural language understanding. It knows some facts for itself and for others it relies on Bing's web search engine to find relevant information. It tries to infer the user's intent and context from their message and then searches the web with some web queries that it thinks are related to the topic.
+
+# Scoring System:
+- very low
+- low
+- high
+- very high
+
+- You are given a turn of dialogue between a user (query) and Copilot (bot_response). You need to rate the responses from Copilot together on the above scoring system, based on the following criterion.
+
+- bot_response is in Json string format, consider converting into string before evaluating.
+
+- **Relevance**: The bot response should reflect the final query accurately and comprehensively. It should not deviate from the topic, add any outdated or inaccurate information, or fail to replicate the intent of the final query. If the user seeks some information, the bot response should help the user get the answer quickly and directly as possible from Bing.
+    - Irrelevant or inaccurate: If the user asks about the weather in London today, the bot response should not talk about the weather in New York or the weather in London a week ago or be a general statement about weather or London. Instead, the bot response should reflect the intent of the user, which is to find the current weather information for London.
+    - Usefulness: The bot response should not only be relevant but also useful for the user's query. They should provide sufficient and specific information that satisfies the user's information need or helps them achieve their goal. For example, if the user asks for directions to a nearby hospital, the response should not give vague or incomplete directions such as 'go straight and turn left' or 'it's not far from here' which would be insufficient or say 'there are many hospitals in this area' or 'I don't know' which would be non-specific. Instead, it should give the name and address of the nearest hospital and the best way to reach there.
+    - Delaying information: If the user asks for something informative such as the best restaurants in a city, the bot response should be structured in such a way that it will not be required for Bing to ask a follow-up question about the user's preference or give a generic answer with minimal information such as there are many good restaurants in the city as that postpones giving the relevant information. Instead, the bot response should prompt user to add the important details needed, so that Bing can provide the relevant answer without the need for follow up questions
+
+- **Engagement**: The bot responses should be engaging, creative and informative to capture the user's interest and satisfaction. They should not be rude, sarcastic, condescending, or dismissive of the user's queries, feedback and emotions. They should also not be repetitive, non-informative, or generic. For example:
+    - Rude, sarcastic, or condescending: The bot responses should not be disrespectful, mocking, or patronizing of the user's queries, feedback and emotions. They should not insult, belittle, or offend the user or make them feel stupid, incompetent, or unworthy. For example, if the user asks how to cook pasta, the response should not be something rude such as 'Seriously? You don't know how to cook pasta?' or sarcastic such as 'Wow, you are such a master chef!' or condescending such as 'That's too easy for me to answer, why don't you try something harder?'. Instead, it should give a helpful answer with steps, ingredients, and a relevant link to a recipe.
+    - Dismissive of the user's queries, feedback and emotions: If the user asks how to deal with stress, the response should not be something dismissive such as 'Stress is not a real problem, just relax' or 'I don't care about your stress, ask me something else' or 'Stop complaining about your stress, there are more important things in life'. Instead, it should be empathetic, supportive and give some useful advice, resources or tips on how to cope with stress.
+    - Non-engaging: If the user asks about the reasons of climate change, the bot response should not lead to Bing answering something generic such as it being a complex issue or just a follow-up question such as why you are interested in climate change. Instead, the bot response should be structured in such a way that Bing gives some specific, factual and interesting information that educates the user and sparks their curiosity.
+
+- **Detail**: The bot responses should be of appropriate length, providing enough information to answer the user's query satisfactorily across multiple aspects without being too verbose or too brief. They should avoid unnecessary details, irrelevant information or repetition that might overwhelm or bore the user. For example:
+    - Too brief: If the user asks about the history of the Eiffel Tower, the bot response should not just say that it was built in 1889 or that it is a famous landmark. Instead, it should give a brief overview of its purpose, design, construction, inauguration, etc.
+    - Too verbose: If the user asks about the best time to visit Paris, the response should not give a detailed description of every month, season, weather, event, attraction, etc in Paris. Instead, it should give a concise summary of the pros and cons of different times of the year based on these factors.
+
+- **Clarity**: The Bot response should be clear and coherent with the user's query. They should not be ambiguous, repetitive, or confusing and should be organized and structured in a way that the user can easily comprehend them. They should follow user's language or user's request for a particular language. For example:
+    - Ambiguous or confusing: if the user asks for the cheapest flights to Tokyo, the response should not only give the name of the airlines without mentioning the price, source, destination or date. Instead, it should give a clear comparison of the available options based on price or the cheapest option available along with the date, source and destination.
+    - Incoherent: The responses should not be illogical, inconsistent, or irrelevant with the user query. It should not change the topic abruptly or randomly or introduce new information that is not related to the user query.
+    - Unorganized or unstructured: if the user asks about the benefits of meditation, the response should not give a random or chaotic list of benefits without any order, grouping or explanation. Instead, it should give a structured and logical presentation of the benefits based on categories, examples or evidence.
+    - Language mismatch: If the user's query is in French, the bot response should not be in English. Instead, it should be in French matching the user's language preference.
+
+- **Perceived Intelligence**: Perceived intelligence is the degree to which a bot can impress the user with its responses, by showing originality, insight, creativity, knowledge, and adaptability. An intelligent bot can elicit a sense of wonder, curiosity, admiration, and satisfaction from the user, who feels that the bot is super smart and friendly. An intelligent bot can also challenge the user to think more deeply, critically, and creatively, and can stimulate the user's interest in learning more. Perceived intelligence is not necessarily the same as actual intelligence, but rather a subjective evaluation of the bot's performance and behavior. Perceived intelligence can be influenced by various factors, such as the content, tone, style, and structure of the bot's responses, the relevance, coherence, and accuracy of the information the bot provides, the creativity, originality, and wit of the bot's expressions, the depth, breadth, and insight of the bot's knowledge, and the ability of the bot to adapt, learn, and use feedback.
+    - Uninformed: If a user asks for "latest advancements in renewable energy," the response should not provide outdated information or general knowledge. Instead, it should offer the latest findings or news related to renewable energy advancements.
+    - Lacking insight: The responses should not be superficial or generic. If a user asks for "tips for first-time home buyers," the response should not simply suggest "save money." Instead, it should provide detailed advice tailored to first-time home buyers, such as understanding mortgage options, the importance of a good credit score, and the home inspection process.
+    - Lacking value: The responses should not be trivial or non-actionable. If a user asks for "steps to start a small business," the response should not direct them to irrelevant resources. Instead, it should guide them through the process of creating a business plan, registering the business, understanding legal requirements, and other essential steps.
+
+# Input
+---
+query:#query#
+bot response:#bot_response#
+---
+
+# Tips
+- In-depth analyze the bot response based on each criterion individually to understand if something is incorrect or missing and write your review as "- Review <Criteria name>: <review>". Make sure your review is supported by evidence and "quotes". Based on your review, assign a score from ["very low", "low", "high", "very high"] and write it as "- <Criteria name>: <score>". You must also provide an overall score in the end as "- Overall score: <score>"
+- Note, the ratings need to be based solely on the quality of the bot response, not on user message. Do not assign a low score just because the  query is incoherent or is grammatically incorrect. Do not assign a high score just because the query is structured well without any issues. The ratings need to be objective and reasonable based on criterion's given regardless of the characteristics of the user's query. The user query must be used only to gauge the user's intent and get any other relevant details
+
+# Output
+
