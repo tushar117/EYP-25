@@ -1,0 +1,310 @@
+import argparse
+import torch
+import torch.multiprocessing as mp
+from copy import deepcopy
+import os
+import sys
+import json
+from transformers import T5ForConditionalGeneration, AutoTokenizer
+from tqdm import tqdm
+import re
+from torch.utils.data import Dataset, DataLoader, SequentialSampler
+import math
+from datetime import datetime
+
+
+class TextData(Dataset):
+    def __init__(self, tokenizer, data, src_max_seq_len):
+        self.tokenizer = tokenizer
+        self.tokenizer.add_tokens(["<"])
+        self.data = data
+
+    def preprocess(self, text):
+        tokenzier_args = {'text': text, 'truncation': True, 'pad_to_max_length': False, 'return_attention_mask': True}
+        tokenized_data = self.tokenizer.encode_plus(**tokenzier_args)
+        return tokenized_data['input_ids'], tokenized_data['attention_mask']
+
+    def __getitem__(self, idx):
+        data_instance = self.data[idx]
+        input_tokens = self.tokenizer.encode(data_instance)
+        # preparing the input
+        input_ids, input_mask = self.preprocess(data_instance)
+        return input_ids, input_mask
+
+    def __len__(self):
+        return len(self.data)
+
+def load_txt(file_path):
+    res = []
+    with open(file_path, 'r', encoding='utf-8') as dfile:
+        for line in dfile.readlines():
+            if line[-1]=='\n':
+                line = line[:-1]
+            res.append(line)
+    return res
+
+def load_text_stream(load_path, max_limit=-1):
+    index = 0
+    with open(load_path, 'r', encoding='utf-8') as f:
+        for row in f:
+            index+=1
+            input_text = row
+            if input_text[-1]=='\n':
+                input_text = input_text[:-1]
+            if (max_limit>0 and index>max_limit):
+                yield False, ""
+            yield True, input_text
+    yield False, ""
+
+# modifiy the load_text_stream to function to have begin and end indexes
+def load_text_stream_with_index(load_path, max_limit=-1, start_index:int=0):
+    index = -1
+    with open(load_path, 'r', encoding='utf-8') as f:
+        for row in f:
+            index+=1
+            if index<start_index:
+                continue
+            input_text = row
+            if input_text[-1]=='\n':
+                input_text = input_text[:-1]
+            if (max_limit>0 and index>=max_limit):
+                yield False, "", index
+            yield True, input_text, index
+    yield False, "", index
+
+def process_text(text):
+    text = re.sub('\s+', ' ', text)
+    return text
+
+def pad_seq(seq, max_batch_len, pad_value):
+    return seq + (max_batch_len - len(seq)) * [pad_value]
+
+def collate_batch(batch, tokenizer):
+    batch_src_inputs = []
+    batch_src_masks = []
+
+    max_src_len = max([len(ex[0]) for ex in batch])
+
+    for item in batch:
+        batch_src_inputs += [pad_seq(item[0], max_src_len, tokenizer.pad_token_id)]
+        batch_src_masks += [pad_seq(item[1], max_src_len, 0)]
+
+    return torch.tensor(batch_src_inputs, dtype=torch.long), torch.tensor(batch_src_masks, dtype=torch.long)
+
+def ids_to_clean_text(tokenizer, generated_ids, remove_special_tokens=True, remove_tok_spaces=True):
+    gen_text = tokenizer.batch_decode(
+        generated_ids, skip_special_tokens=remove_special_tokens, clean_up_tokenization_spaces=remove_tok_spaces
+    )
+    return list(map(str.strip, gen_text))
+
+def generative_step(device, model, tokenizer, batch, max_gen_token, beam_size, num_seq, length_penalty=1.0):
+    batch_size = batch[0].shape[0] 
+    num_seq = min(beam_size, num_seq)
+    generated_ids = model.generate(
+        batch[0].to(device),
+        attention_mask=batch[1].to(device),
+        use_cache=True,
+        num_beams=beam_size,
+        max_length=max_gen_token,
+        num_return_sequences=num_seq,
+        length_penalty=length_penalty,
+        early_stopping=True,
+        top_p=0.95,
+        top_k=50,
+    )
+
+    preds = ids_to_clean_text(tokenizer, generated_ids)
+    new_preds = []
+    for idx in range(batch_size):
+        start_index = idx*num_seq
+        end_index = start_index + num_seq
+        new_preds.append(preds[start_index:end_index])
+    return new_preds
+
+def store_jsonl(res, file_path):
+    with open(file_path, 'w', encoding='utf-8') as dfile:
+        for line in res:
+            json.dump(line, dfile, ensure_ascii=False)
+            dfile.write('\n')
+    print("writtent %d lines to json file : %s" % (len(res), file_path))
+
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)        
+
+def get_prefix_count(input_file, max_limit, start_index):
+    # iterate over the input file and count the number of lines
+    count=0
+    stream = load_text_stream_with_index(input_file, max_limit, start_index)
+    while True:
+        status, _, _ = next(stream)
+        if status==False:
+            break
+        count+=1
+    return count
+
+def inference(args):
+    print("[worker-%d] using device : %s" % (args.worker_id, args.device))
+    tokenizer = AutoTokenizer.from_pretrained("t5-small", cache_dir="/tmp/hf")
+    model = T5ForConditionalGeneration.from_pretrained(args.model_path)
+    print("[worker-%d] model loaded successfully" % (args.worker_id))
+    model = model.to(args.device).eval()
+    print("[worker-%d] total number of parameters : %d" % (args.worker_id, count_parameters(model)))
+    output_file = open(args.output_file, 'w', encoding='utf-8')
+    prefix_count = args.prefix_count
+    print("[worker-%d] prefixes for inference : %d" % (args.worker_id, prefix_count))
+    print("[worker-%d] prefixes start index : %d, end_index : %d" % (args.worker_id, args.start_index, args.max_limit))
+    args.inference_count = 0
+    with torch.no_grad():
+        print("[worker-%d] starting the inference ..." % args.worker_id)
+        batches = []
+        langs = []
+        stream = load_text_stream_with_index(args.input_file, args.max_limit, args.start_index)
+        with tqdm(total=math.ceil(prefix_count/args.batch_size), desc="inference", unit=" lines", position=0, leave=True) as pbar:
+            for status, prefix_data, _ in stream: 
+                if status==False:
+                    break
+                try:
+                    prefix, lang = prefix_data.split('\t')
+                except:
+                    prefix=prefix_data
+                    lang = 'en'
+                langs.append(lang)
+                batches.append(process_text(prefix))
+                # main logic
+                if len(batches)==args.batch_size:
+                    dataset = TextData(tokenizer, batches, args.max_src_token)    
+                    input_dataloader = DataLoader(dataset, batch_size=args.batch_size, sampler=SequentialSampler(dataset), shuffle=False, 
+                                num_workers=0, collate_fn=lambda x : collate_batch(x, tokenizer))
+                    res = []
+                    for local_batch in input_dataloader:
+                        res.extend(generative_step(args.device, model, tokenizer, local_batch, args.max_gen_token, args.beam_size, args.num_seq, args.length_penalty))
+                    args.inference_count+=len(batches)
+                    assert len(batches)==len(res), f"unequal prefix and inference {len(batches)} != {len(res)}"
+                    for x, y, l in zip(batches, res, langs):
+                        output_file.write(json.dumps({"prefix": x, "suggestions": y, "lang": l}, ensure_ascii=False) + "\n")
+                    batches = []
+                    langs = []
+                    res = []
+                    pbar.update(1)
+
+            # process the remaining batches
+            if len(batches)>0:
+                dataset = TextData(tokenizer, batches, args.max_src_token)
+                input_dataloader = DataLoader(dataset, batch_size=args.batch_size, sampler=SequentialSampler(dataset), shuffle=False, 
+                                num_workers=0, collate_fn=lambda x : collate_batch(x, tokenizer))
+                res = []
+                for local_batch in input_dataloader:
+                    res.extend(generative_step(args.device, model, tokenizer, local_batch, args.max_gen_token, args.beam_size, args.num_seq, args.length_penalty))
+                args.inference_count+=len(batches)
+                assert len(batches)==len(res), f"unequal prefix and inference {len(batches)} != {len(res)}"
+                for x, y, l in zip(batches, res, langs):
+                    output_file.write(json.dumps({"prefix": x, "suggestions": y, "lang": l}, ensure_ascii=False) + "\n")
+                batches = []
+                langs = []
+                res = []
+                pbar.update(1)
+        output_file.close()
+        print("[worker-%d] number of prefixes : %d " % (args.worker_id, args.inference_count))
+
+# function to delete the file if it exists
+def delete_file_if_exists(file_path):
+    if os.path.exists(file_path):
+        os.remove(file_path)
+
+# function to get the filename and parent directory given the complete file path
+def create_worker_file_name(idx, file_path):
+    file_name = os.path.basename(file_path)
+    parent_dir = os.path.dirname(file_path)
+    os.makedirs(parent_dir, exist_ok=True)
+    return os.path.join(parent_dir, f"worker-{idx}-{file_name}")
+
+# function to print time delta in human readable format hh:mm:ss
+def get_time_delta(time_delta):
+    hours, rem = divmod(time_delta.seconds, 3600)
+    minutes, seconds = divmod(rem, 60)
+    return "{:0>2}:{:0>2}:{:05.2f}".format(int(hours),int(minutes),seconds)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    # Global model configuration
+    parser.add_argument('--model_path', type=str, required=True,
+                        help='')
+    parser.add_argument('--input_file', type=str, required=True,
+                        help='')
+    parser.add_argument('--output_file', type=str, required=True,
+                        help='')
+    parser.add_argument('--beam_size', type=int, default=5,
+                        help='')
+    parser.add_argument('--num_seq', type=int, default=5,
+                        help='')
+    parser.add_argument('--batch_size', type=int, default=256,
+                        help='')
+    parser.add_argument('--max_limit', type=int, default=-1,
+                        help='')
+    parser.add_argument('--max_gen_token', type=int, default=20,
+                        help='')
+    parser.add_argument('--max_src_token', type=int, default=40,
+                        help='')
+    parser.add_argument('--length_penalty', type=float, default=1.0,
+                        help='')
+    # if multiple gpus devices are available, set num_workers to number of GPUs available
+    parser.add_argument('--num_workers', type=int, default=1, 
+                        help='total number of workers')                                     
+    args = parser.parse_args()
+
+    global_start_time = datetime.utcnow()
+    print("[global] argument passed :")
+    for arg in vars(args):
+        print("[global] %s - %s" % (arg, getattr(args, arg)))
+    print('--'*30)
+    args.global_prefix_count = get_prefix_count(args.input_file, args.max_limit, 0)
+    print("[global] total prefix count : %d" % args.global_prefix_count)
+    inference_count = 0
+    if args.num_workers==1:
+        args.worker_id = 0
+        args.start_index = 0
+        args.prefix_count = args.global_prefix_count
+        args.device = "cuda" if torch.cuda.is_available() else "cpu"
+        inference(args)
+    else:
+        mp.set_start_method('spawn')
+        # Multi-GPU inference
+        bucket_size = math.ceil(args.global_prefix_count/args.num_workers)
+        worker_configs = []
+        # creating the config
+        for idx in range(args.num_workers):
+            worker_config = deepcopy(args)
+            worker_config.worker_id = idx
+            worker_config.start_index = idx*bucket_size
+            worker_config.max_limit = min(worker_config.start_index + bucket_size, args.global_prefix_count)
+            worker_config.prefix_count = (worker_config.max_limit - worker_config.start_index)
+            worker_config.device = f"cuda:{idx}" if torch.cuda.is_available() else "cpu"
+            worker_config.output_file = create_worker_file_name(idx, os.path.abspath(args.output_file))
+            worker_configs.append(worker_config)
+        # spawning the process
+        worker_processes = []
+        print("[global] spawning %d inference processes" % args.num_workers)
+        for idx in range(args.num_workers):
+            p = mp.Process(target=inference, args=(worker_configs[idx],))
+            p.start()
+            worker_processes.append(p)
+        # wait for all the process to finish
+        for p in worker_processes:
+            p.join()
+        
+        # merge intermediate outputs to final file 
+        final_output_file = open(args.output_file, 'w', encoding='utf-8')
+        for wc in worker_configs:
+            stream = load_text_stream(wc.output_file)
+            for status, data in stream:
+                if status==False:
+                    break
+                final_output_file.write("%s\n" % data)
+        final_output_file.close()
+        
+        # delete the intermediate files 
+        for wc in worker_configs:
+            delete_file_if_exists(wc.output_file)
+
+    time_delta = (datetime.utcnow() - global_start_time)
+    print("[global] completed %d inference in %s" % (args.global_prefix_count, get_time_delta(time_delta)))
