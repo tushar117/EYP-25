@@ -191,10 +191,12 @@ EYP-25/
 │   ├── datasets/                 # Training/evaluation data
 │   ├── model_inferences/         # Model outputs
 │   └── agent-inferences/         # Evaluation results
-└── models.txt                    # Model configurations
+└── models.txt                    # Model checkpoint location on HuggingFace
 ```
 
 ## 🤖 Models
+All fine-tuned models are available on HuggingFace:
+🤗 **https://huggingface.co/eyp2024/enhance_my_prompt/tree/main**
 
 ### Supported Models
 1. **GPT-2 Medium** (355M parameters)
@@ -207,6 +209,19 @@ EYP-25/
 - Enhancement quality
 - Resource requirements
 - Domain adaptability
+
+### Downloading Models
+
+To download a specific model from HuggingFace:
+```bash
+# Using git-lfs
+git lfs install
+git clone https://huggingface.co/eyp2024/enhance_my_prompt
+
+# Or using huggingface-cli
+pip install huggingface-hub
+huggingface-cli download eyp2024/enhance_my_prompt --local-dir ./models
+```
 
 ## 📈 Evaluation Metrics
 
